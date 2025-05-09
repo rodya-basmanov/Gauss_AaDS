@@ -2,6 +2,8 @@
 #include <iostream>
 #include <string>
 #include <chrono>
+#include <fstream>
+#include <stdexcept>
 
 void printUsage() {
     std::cout << "Usage:" << std::endl;
