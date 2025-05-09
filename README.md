@@ -11,8 +11,6 @@ Implementation of the Gauss elimination method for solving systems of linear alg
 
 ## Building and Running
 
-### On Linux/macOS
-
 To build the program:
 
 ```
@@ -33,40 +31,18 @@ chmod +x tests.sh
 ./tests.sh
 ```
 
-### On Windows
-
-1. Setup the environment (downloads Eigen library):
-
-```
-setup.bat
-```
-
-2. Build the program:
-
-```
-build.bat
-```
-
-3. Run tests:
-
-```
-tests.bat
-```
-
 ## Usage
 
 ### Reading system from CSV file
 
 ```
-./main input.csv output.csv     # Linux/macOS
-main.exe input.csv output.csv   # Windows
+./main input.csv output.csv
 ```
 
 ### Generating random system
 
 ```
-./main --generate <size> <seed> <output_file>     # Linux/macOS
-main.exe --generate <size> <seed> <output_file>   # Windows
+./main --generate <size> <seed> <output_file>
 ```
 
 Examples:
