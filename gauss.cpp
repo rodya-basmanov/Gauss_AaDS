@@ -13,21 +13,21 @@
 namespace gauss {
 
 std::optional<Eigen::VectorXd> solve(const Eigen::MatrixXd& A, const Eigen::VectorXd& b) {
-    // We'll use Eigen's built-in solver for better accuracy
-    Eigen::VectorXd x;
+    // Сначала проверим, является ли матрица вырожденной
+    Eigen::ColPivHouseholderQR<Eigen::MatrixXd> qr(A);
+    if (qr.rank() < A.cols()) {
+        // Матрица вырожденная, решения нет
+        return std::nullopt;
+    }
     
-    // A direct solver from Eigen for dense matrices
-    x = A.colPivHouseholderQr().solve(b);
+    // Используем встроенный решатель Eigen для лучшей точности
+    Eigen::VectorXd x = qr.solve(b);
     
-    // Check if the solution is valid
+    // Проверим, насколько точное решение мы получили
     double relative_error = (A * x - b).norm() / b.norm();
     if (relative_error > 1e-8) {
-        // If the relative error is too large, check the rank
-        Eigen::ColPivHouseholderQR<Eigen::MatrixXd> qr(A);
-        if (qr.rank() < A.cols()) {
-            // The matrix is rank-deficient, no unique solution
-            return std::nullopt;
-        }
+        // Если относительная ошибка слишком велика, решения может не быть
+        return std::nullopt;
     }
     
     return x;
