@@ -5,6 +5,7 @@
 #include <cmath>
 #include <stdexcept>
 #include <limits>
+#include <string>
 
 namespace gauss {
 
@@ -76,9 +77,11 @@ std::pair<Eigen::MatrixXd, Eigen::VectorXd> readSystemFromCSV(const std::string&
     for (const auto& row : parser) {
         if (rows == 0) {
             // Count cells in the first row to determine matrix width
-            for (const auto& cell : row) {
-                cols++;
+            int cell_count = 0;
+            for (const auto& _ : row) {
+                cell_count++;
             }
+            cols = cell_count;
         }
         rows++;
     }
@@ -95,7 +98,10 @@ std::pair<Eigen::MatrixXd, Eigen::VectorXd> readSystemFromCSV(const std::string&
     for (const auto& row : parser) {
         int col_idx = 0;
         for (const auto& cell : row) {
-            double value = std::stod(cell.raw());
+            // Convert string_view to string before using std::stod
+            std::string cell_str(cell.raw());
+            double value = std::stod(cell_str);
+            
             if (col_idx < n) {
                 A(row_idx, col_idx) = value;
             } else {
