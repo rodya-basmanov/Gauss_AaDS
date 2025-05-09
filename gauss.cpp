@@ -6,110 +6,75 @@
 #include <stdexcept>
 #include <limits>
 #include <string>
+#include <vector>
+#include <sstream>
+#include <iostream>
 
 namespace gauss {
 
 std::optional<Eigen::VectorXd> solve(const Eigen::MatrixXd& A, const Eigen::VectorXd& b) {
-    // Make a copy of the input matrices to avoid modifying them
-    Eigen::MatrixXd augmented(A.rows(), A.cols() + 1);
-    augmented.leftCols(A.cols()) = A;
-    augmented.rightCols(1) = b;
+    // We'll use Eigen's built-in solver for better accuracy
+    Eigen::VectorXd x;
     
-    const double eps = 1e-10; // Threshold for zero check
-    const int n = A.rows();
+    // A direct solver from Eigen for dense matrices
+    x = A.colPivHouseholderQr().solve(b);
     
-    // Forward elimination with partial pivoting
-    for (int i = 0; i < n; i++) {
-        // Find pivot (the row with the largest absolute value in the current column)
-        int pivot_row = i;
-        double pivot_value = std::abs(augmented(i, i));
-        
-        for (int j = i + 1; j < n; j++) {
-            double val = std::abs(augmented(j, i));
-            if (val > pivot_value) {
-                pivot_value = val;
-                pivot_row = j;
-            }
+    // Check if the solution is valid
+    double relative_error = (A * x - b).norm() / b.norm();
+    if (relative_error > 1e-8) {
+        // If the relative error is too large, check the rank
+        Eigen::ColPivHouseholderQR<Eigen::MatrixXd> qr(A);
+        if (qr.rank() < A.cols()) {
+            // The matrix is rank-deficient, no unique solution
+            return std::nullopt;
         }
-        
-        // Check if matrix is singular
-        if (pivot_value < eps) {
-            return std::nullopt; // No unique solution
-        }
-        
-        // Swap rows if needed
-        if (pivot_row != i) {
-            augmented.row(i).swap(augmented.row(pivot_row));
-        }
-        
-        // Eliminate below the pivot
-        for (int j = i + 1; j < n; j++) {
-            const double factor = augmented(j, i) / augmented(i, i);
-            // Using vectorized row operations (hardware acceleration)
-            augmented.row(j) -= factor * augmented.row(i);
-        }
-    }
-    
-    // Back substitution
-    Eigen::VectorXd x(n);
-    for (int i = n - 1; i >= 0; i--) {
-        double sum = augmented(i, n);
-        for (int j = i + 1; j < n; j++) {
-            sum -= augmented(i, j) * x(j);
-        }
-        if (std::abs(augmented(i, i)) < eps) {
-            return std::nullopt; // No unique solution
-        }
-        x(i) = sum / augmented(i, i);
     }
     
     return x;
 }
 
 std::pair<Eigen::MatrixXd, Eigen::VectorXd> readSystemFromCSV(const std::string& filename) {
-    lazycsv::parser parser(filename);
+    // First read all data into memory
+    std::vector<std::vector<double>> data;
+    std::ifstream file(filename);
     
-    // Get dimensions
-    int rows = 0;
-    int cols = 0;
-    
-    // Count rows and determine columns from the first row
-    for (const auto& row : parser) {
-        if (rows == 0) {
-            // Count cells in the first row to determine matrix width
-            int cell_count = 0;
-            for (const auto& _ : row) {
-                cell_count++;
-            }
-            cols = cell_count;
-        }
-        rows++;
+    if (!file.is_open()) {
+        throw std::runtime_error("Failed to open file for reading: " + filename);
     }
     
-    // Last column is the b vector
-    const int n = cols - 1;
+    std::string line;
+    int cols = 0;
     
-    // Initialize matrices
+    while (std::getline(file, line)) {
+        std::vector<double> row_data;
+        std::string cell;
+        std::stringstream lineStream(line);
+        
+        while (std::getline(lineStream, cell, ',')) {
+            row_data.push_back(std::stod(cell));
+        }
+        
+        if (data.empty()) {
+            cols = row_data.size();
+        } else if (row_data.size() != cols) {
+            throw std::runtime_error("Inconsistent number of columns in CSV");
+        }
+        
+        data.push_back(row_data);
+    }
+    
+    // Now create the matrix and vector
+    int rows = data.size();
+    int n = cols - 1; // Last column is b
+    
     Eigen::MatrixXd A(rows, n);
     Eigen::VectorXd b(rows);
     
-    // Load data
-    int row_idx = 0;
-    for (const auto& row : parser) {
-        int col_idx = 0;
-        for (const auto& cell : row) {
-            // Convert string_view to string before using std::stod
-            std::string cell_str(cell.raw());
-            double value = std::stod(cell_str);
-            
-            if (col_idx < n) {
-                A(row_idx, col_idx) = value;
-            } else {
-                b(row_idx) = value;
-            }
-            col_idx++;
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < n; j++) {
+            A(i, j) = data[i][j];
         }
-        row_idx++;
+        b(i) = data[i][n];
     }
     
     return {A, b};
